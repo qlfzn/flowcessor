@@ -1,11 +1,12 @@
 import os
 import json
+from app.utils.logger import Logger
 from typing import Type, Dict, List
 from dotenv import load_dotenv
 from groq import Groq
 from app.models.schemas import BankStatementResponse
 from pydantic import BaseModel, ValidationError
-from app.config import MAX_CHARS_PER_CHUNK, SYSTEM_PROMPT, EXAMPLE
+from app.config import MAX_CHARS_PER_CHUNK, SYSTEM_PROMPT
 
 load_dotenv()
 
@@ -16,11 +17,16 @@ client = Groq(
     max_retries=3,
 )
 
+
 class AIExtractionError(Exception):
     pass
 
+
 class SchemaValidationError(Exception):
     pass
+
+
+logger = Logger(__name__)
 
 
 def split_into_chunks(text: str, max_chars: int) -> List[str]:
@@ -69,7 +75,7 @@ def extract_transactions_from_chunk(chunk: str, response_schema: dict) -> List[D
             },
             {
                 "role": "user",
-                "content": f"{EXAMPLE}\n\nNow extract from this statement chunk:\n\n{chunk}",
+                "content": f"Now extract from this statement chunk:\n\n{chunk}",
             },
         ],
         model="llama-3.3-70b-versatile",
@@ -80,13 +86,21 @@ def extract_transactions_from_chunk(chunk: str, response_schema: dict) -> List[D
     message = chat_completion.choices[0].message
     response_text = message.content
 
+    usage = chat_completion.usage
+
+    if usage:
+        logger.warning(
+            "Groq usage — prompt_tokens: %d, completion_tokens: %d, total_tokens: %d",
+            usage.prompt_tokens,
+            usage.completion_tokens,
+            usage.total_tokens,
+        )
+
     try:
         parsed = json.loads(str(response_text))
         return parsed.get("transactions", [])
     except json.JSONDecodeError as e:
-        raise AIExtractionError(
-            f"failed to parse LLM response as JSON: {e}\n"
-        )
+        raise AIExtractionError(f"failed to parse LLM response as JSON: {e}\n")
 
 
 def generate_formatted_data(parsed_text: str) -> Dict:
@@ -98,21 +112,21 @@ def generate_formatted_data(parsed_text: str) -> Dict:
 
     try:
         if len(parsed_text) <= MAX_CHARS_PER_CHUNK:
+            logger.warning("Text fits in single chunk (%d chars)", len(parsed_text))
             transactions = extract_transactions_from_chunk(parsed_text, response_schema)
         else:
             chunks = split_into_chunks(parsed_text, MAX_CHARS_PER_CHUNK)
-            transactions = []
-            seen_txn = set()
+            logger.warning(
+                "Text split into %d chunks (total %d chars, ~%d chars each)",
+                len(chunks),
+                len(parsed_text),
+                MAX_CHARS_PER_CHUNK,
+            )
 
-            for chunk in chunks:
-                chunk_transactions = extract_transactions_from_chunk(
-                    chunk, response_schema
-                )
-                for t in chunk_transactions:
-                    key = (t.get("date"), t.get("transaction"), t.get("amount"))
-                    if key not in seen_txn:
-                        seen_txn.add(key)
-                        transactions.append(t)
+            all_chunks_text = "\n\n---NEXT CHUNK---\n\n".join(chunks)
+            transactions = extract_transactions_from_chunk(
+                all_chunks_text, response_schema
+            )
 
         return {"transactions": transactions}
 

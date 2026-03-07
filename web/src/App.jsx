@@ -13,6 +13,7 @@ import StatsBar from "./components/StatsBar"
 import TransactionsTable from "./components/TransactionsTable"
 
 const API_URL = import.meta.env.VITE_API_URL
+console.log(`Fetching data from ${API_URL}`)
 
 const App = () => {
   const [file, setFile] = useState(null)

@@ -1,4 +1,4 @@
-MAX_CHARS_PER_CHUNK = 6000
+MAX_CHARS_PER_CHUNK = 122000
 
 SYSTEM_PROMPT = """
     You are parsing a Malaysian bank statement data extraction expert. The extracted text might be out of order and unstructred.

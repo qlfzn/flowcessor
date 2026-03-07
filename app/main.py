@@ -1,13 +1,29 @@
-import os
+import sys
 from dotenv import load_dotenv
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from app.api.routes import router
+from app.utils.logger import Logger
 
 load_dotenv()
 
-ALLOW_ORIGINS = os.getenv("VITE_APP")
+logger = Logger(__name__)
+
+formatter = logging.Formatter(
+    "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(formatter)
+
+for name in logging.root.manager.loggerDict:
+    if name in ("uvicorn"):
+        uvicorn_logger = logging.getLogger(name)
+        uvicorn_logger.handlers.clear()
+        uvicorn_logger.addHandler(handler)
+        uvicorn_logger.setLevel(logging.INFO)
 
 app = FastAPI(
     title="Bank Statement Processing API",
@@ -17,7 +33,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[ALLOW_ORIGINS],
+    allow_origin_regex=r"https?://.*",
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
@@ -25,4 +41,4 @@ app.add_middleware(
 app.include_router(router, prefix="/api/v1")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_config=None)
