@@ -5,12 +5,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from app.api.routes import router
-from app.utils.logger import Logger
 
 load_dotenv()
 
-logger = Logger(__name__)
-
+# setup logger
+logger = logging.getLogger(__name__)
 formatter = logging.Formatter(
     "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
@@ -18,12 +17,16 @@ formatter = logging.Formatter(
 handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(formatter)
 
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+root_logger.addHandler(handler)
+
 for name in logging.root.manager.loggerDict:
-    if name in ("uvicorn"):
-        uvicorn_logger = logging.getLogger(name)
+    if name in ("uvicorn", "uvicorn.access", "uvicorn.error"):
+        uvicorn_logger = logger
         uvicorn_logger.handlers.clear()
         uvicorn_logger.addHandler(handler)
-        uvicorn_logger.setLevel(logging.INFO)
+        uvicorn_logger.propagate = False
 
 app = FastAPI(
     title="Bank Statement Processing API",

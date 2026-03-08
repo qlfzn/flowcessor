@@ -1,6 +1,6 @@
 import os
 import json
-from app.utils.logger import Logger
+import logging
 from typing import Type, Dict, List
 from dotenv import load_dotenv
 from groq import Groq
@@ -26,7 +26,7 @@ class SchemaValidationError(Exception):
     pass
 
 
-logger = Logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def split_into_chunks(text: str, max_chars: int) -> List[str]:

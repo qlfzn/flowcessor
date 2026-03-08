@@ -1,4 +1,5 @@
-from app.utils import Logger
+# from app.utils import Logger
+import logging
 from fastapi import APIRouter, File, UploadFile, HTTPException
 from app.models.schemas import BankStatementResponse
 from app.services.pdf_parser import extract_text_from_pdf, PDFParserError
@@ -12,7 +13,7 @@ router = APIRouter()
 
 MAX_SIZE = 16 * 1024 * 1024
 
-logger = Logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 @router.get("/")
